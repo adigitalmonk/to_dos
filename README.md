@@ -60,7 +60,7 @@ When compiling, you'll see something similar to this:
 > mix compile
 ==> my_app_web
 Compiling 1 file (.ex)
-TODO: Implement actual check | MyAppWeb.Plugs.AuthCheck [/project/path/lib/my_app_web/plugs/auth_check.ex#L5]
+TODO(MyAppWeb.Plugs.AuthCheck): Implement actual check | /project/path/lib/my_app_web/plugs/auth_check.ex#L5
 ```
 
 ### Time-sensitive TODO
