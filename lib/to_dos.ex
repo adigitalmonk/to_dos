@@ -1,10 +1,6 @@
 defmodule ToDos do
-  defp merge_opts(opts) do
-    default_args = [
-      deadline: nil
-    ]
-
-    Keyword.merge(default_args, opts)
+  defp add_defaults(opts) do
+    Keyword.put_new(opts, :deadline, nil)
   end
 
   defp prepare_todo(payload) do
@@ -13,45 +9,38 @@ defmodule ToDos do
     |> Enum.join(" | ")
   end
 
-  def show_to_do(message, caller, opts) do
-    opts = merge_opts(opts)
+  defp add_deadline(output, nil), do: output
 
-    output =
-      case message do
-        message when is_binary(message) -> ["TODO(#{caller.module}): #{message}"]
-        message -> ["TODO(#{caller.module}): #{inspect(message)}"]
+  defp add_deadline(output, deadline) when is_binary(deadline) do
+    no_later_than =
+      case DateTime.from_iso8601(deadline) do
+        {:ok, no_later_than, _} -> no_later_than
+        {:error, error} -> compile_error("invalid deadline format, #{inspect(error)}")
       end
 
-    output = ["#{caller.file}\#L#{caller.line}" | output]
-
-    case opts[:deadline] do
-      nil ->
-        output
-        |> prepare_todo()
-        |> IO.puts()
-
-      deadline when is_binary(deadline) ->
-        no_later_than =
-          case DateTime.from_iso8601(deadline) do
-            {:ok, no_later_than, _} ->
-              no_later_than
-
-            {:error, error} ->
-              compile_error("invalid deadline format, #{inspect(error)}")
-          end
-
-        if DateTime.compare(DateTime.utc_now(), no_later_than) == :gt do
-          error_desc = prepare_todo(["Deadline Exceeded: >= #{inspect(no_later_than)}" | output])
-          compile_error(error_desc)
-        else
-          ["Should be Resolved Before: #{deadline}" | output]
-          |> prepare_todo()
-          |> IO.puts()
-        end
-
-      _ ->
-        compile_error("Deadline must be either DateTime or nil")
+    if DateTime.compare(DateTime.utc_now(), no_later_than) == :gt do
+      ["Deadline Exceeded: >= #{inspect(no_later_than)}" | output]
+      |> prepare_todo()
+      |> compile_error()
+    else
+      ["Should be Resolved Before: #{deadline}" | output]
     end
+  end
+
+  defp add_deadline(_, _), do: compile_error("Deadline must be either ISO 8601 string or nil")
+
+  def show_to_do(message, caller, opts) do
+    opts = add_defaults(opts)
+
+    message
+    |> case do
+      message when is_binary(message) -> ["TODO(#{caller.module}): #{message}"]
+      message -> ["TODO(#{caller.module}): #{inspect(message)}"]
+    end
+    |> then(&["#{caller.file}\#L#{caller.line}" | &1])
+    |> add_deadline(opts[:deadline])
+    |> prepare_todo()
+    |> IO.puts()
 
     :ok
   end
